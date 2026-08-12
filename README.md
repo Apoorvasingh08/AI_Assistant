@@ -8,8 +8,8 @@ handle alone get escalated to a human via an n8n automation.
 
 **Frontend:** Next.js 14 (App Router), plain React, no UI framework
 **Database:** Supabase (Postgres)
-**LLM:** [Groq](https://groq.com) (`llama-3.3-70b-versatile` by default) via structured JSON output — free, no billing required, using an OpenAI-compatible API so the code can point at OpenAI [...]
-**Automation:** n8n (self-hosted, free) — Webhook → dedupe check → Discord notification
+**LLM:** [Groq](https://groq.com) (`llama-3.3-70b-versatile` by default) via structured JSON output : free, no billing required, using an OpenAI-compatible API so the code can point at OpenAI [...]
+**Automation:** n8n (self-hosted, free) : Webhook → dedupe check → Discord notification
 
 ## Architecture
 ```mermaid
@@ -27,7 +27,7 @@ flowchart TD
 
 **One LLM call, not two.** Classification and response generation share context (the
 knowledge base, the message), so a single structured call is simpler and cheaper than
-chaining two calls. The trade-off is a slightly more complex prompt/schema — worth it at
+chaining two calls. The trade-off is a slightly more complex prompt/schema , worth it at
 this scale.
 **No vector DB / RAG.** The knowledge base is 7 hardcoded FAQ entries (`lib/knowledgeBase.js`)
 injected directly into the prompt. A real product might use embeddings + retrieval, but for
@@ -68,7 +68,7 @@ Fill in:
 > **Why Groq instead of OpenAI?** The challenge allows "OpenAI, Claude, or another suitable
 > LLM." Groq's API is free and OpenAI-compatible (same `openai` npm SDK, just a different
 > `baseURL`), so it made sense to avoid a billing requirement for a demo project. Swapping
-> back to OpenAI is a one-line env change — see the comments in `.env.example`.
+> back to OpenAI is a one-line env change.
 
 ### 3. n8n
 
@@ -86,7 +86,7 @@ This opens n8n at `http://localhost:5678` on first run (create a local owner acc
    "Discord - Notify Support Channel" node's URL field (replacing the placeholder), or set it
    dynamically via the `discordWebhookUrl` field in the trigger payload.
 3. In the Webhook - Escalation Trigger node, set Response Mode to "Using 'Respond to Webhook'
-   Node" (not "Immediately") — otherwise the workflow's Respond nodes are unreachable and it
+   Node" (not "Immediately") : otherwise the workflow's Respond nodes are unreachable and it
    errors on execution.
 4. Activate/publish the workflow and copy its Production Webhook URL (from the
    "Webhook - Escalation Trigger" node) into `N8N_ESCALATION_WEBHOOK_URL`.
@@ -94,7 +94,7 @@ This opens n8n at `http://localhost:5678` on first run (create a local owner acc
 > **Why Discord instead of Slack?** Both are free, but Slack requires creating an app and
 > setting up OAuth credentials in n8n, which is extra setup for no real benefit in a demo.
 > A Discord webhook URL is copy paste, no auth flow. Swapping back to Slack (or email) just
-> means changing this one node — the rest of the workflow (dedupe, guards, responses) is
+> means changing this one node : the rest of the workflow (dedupe, guards, responses) is
 > unaffected.
 
 The webhook receives:
@@ -119,7 +119,7 @@ Open `http://localhost:3000`.
 
 ## Assumptions
 
-No auth system — a customer just enters an email to start a conversation. A real product
+No auth system : a customer just enters an email to start a conversation. A real product
 would tie this to Supabase Auth or an existing account system.
 One active conversation per customer session (no conversation list/history UI). Multi thread
 support was out of scope for the estimated time.
@@ -140,7 +140,7 @@ explicitly allows ("OpenAI, Claude, or another suitable LLM").
 
 Add an agent facing view (list of escalated conversations, ability to reply and mark
 resolved) so the handoff loop actually closes.
-Retry/reconcile escalations whose n8n webhook call failed — right now it's logged but not
+Retry/reconcile escalations whose n8n webhook call failed : right now it's logged but not
 retried; a small cron/cleanup job that re sends any `escalations` row where
 `notified = false` after N minutes would close that gap.
 Real auth (Supabase Auth) instead of email as identifier.
@@ -166,7 +166,7 @@ The fix was changing the Response Mode to "Using 'Respond to Webhook' Node," sav
 
 ### 2. What I worked on, start to finish
 
-I started by scaffolding the Next.js project structure and the Supabase schema — tables for `users`, `conversations`, `messages`, and `escalations`, including a partial unique index on `escalat[...]
+I started by scaffolding the Next.js project structure and the Supabase schema : tables for `users`, `conversations`, `messages`, and `escalations`, including a partial unique index on `escalat[...]
 
 Next I wired up the LLM classification logic — a single structured call that returns classification, confidence, a grounded response, and an escalation decision, validated against a strict sche[...]
 
