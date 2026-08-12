@@ -154,29 +154,29 @@ escalation dedupe path specifically (concurrent requests hitting the unique inde
 
 ### 1. A technical problem I got stuck on
 
-While testing the escalation flow, I sent an urgent test message ("its an emergency, my acc is hacked") and confirmed the AI correctly classified it and flipped the conversation to "escalated" ��[...]
+While testing the escalation flow, I sent an urgent test message ("its an emergency, my acc is hacked") and confirmed the AI correctly classified it and flipped the conversation to "escalated" but the terminal logged `n8n webhook responded with non OK status: 500`. The escalation itself was saved correctly in Supabase (the app is designed to fail without blocking the request on the notification step), but the Discord notification wasn't going through.
 
-My first guess was that the Discord webhook URL itself was wrong, so I went back into Discord, regenerated the webhook, and re pasted the URL into the n8n node. That didn't fix it.
+My first guess was that the Discord webhook URL itself was wrong, so I went back into Discord, regenerated the webhook, and pasted the new URL into the n8n node. That didn't fix it.
 
-To actually investigate, I opened the workflow in n8n and checked the **Executions** tab, which showed the failed run in red. Clicking into it surfaced the real error: *"Unused Respond to Webhook[...]
+To actually investigate, I opened the workflow in n8n and checked the **Executions** tab, which showed the failed run in red. Clicking into it surfaced the real error: *"Unused Respond to Webhook node found in the workflow."* That pointed me toward the Webhook trigger node's configuration rather than the Discord node I'd been assuming was the problem.
 
-Looking at the Webhook - Escalation Trigger node, its Response Mode was set to "Immediately" — meaning it sends a response back the instant the request is received, instead of waiting for one o[...]
+Looking at the Webhook Escalation Trigger node, its Response Mode was set to "Immediately," meaning it sends a response back the instant the request is received, instead of waiting for one of the workflow's dedicated "Respond to Webhook" nodes (Notified, Skipped, Bad Request) further down the chain. Since those nodes existed but were never actually reached in that mode, n8n flagged them as unused and errored out.
 
-The fix was changing the Response Mode to "Using 'Respond to Webhook' Node," saving, and re publishing the workflow. After that, re sending the same urgent test message went through cleanly (`POS[...]
+The fix was changing the Response Mode to "Using 'Respond to Webhook' Node," saving, and republishing the workflow. After that, resending the same urgent test message went through cleanly (`POST /api/messages 200`, no error logs), and the notification showed up correctly in Discord with the conversation ID, classification, reason, and customer message.
 
 ### 2. What I worked on, start to finish
 
-I started by scaffolding the Next.js project structure and the Supabase schema : tables for `users`, `conversations`, `messages`, and `escalations`, including a partial unique index on `escalat[...]
+I started by scaffolding the Next.js project structure and the Supabase schema: tables for `users`, `conversations`, `messages`, and `escalations`, including a partial unique index on `escalations` to guard against duplicate active escalations for the same conversation. I ran that schema in the Supabase SQL editor and confirmed all four tables showed up correctly in Table Editor.
 
-Next I wired up the LLM classification logic — a single structured call that returns classification, confidence, a grounded response, and an escalation decision, validated against a strict sche[...]
+Next I wired up the LLM classification logic, a single structured call that returns classification, confidence, a grounded response, and an escalation decision, validated against a strict schema so malformed output gets treated as a failure rather than trusted blindly. Originally this was set up for OpenAI, but since I didn't want to attach a paid billing account for a demo project, I switched it to Groq's free, OpenAI compatible API instead, just a `baseURL` and model name change, since the `openai` SDK works against any compatible endpoint.
 
-I built the chat UI next — an email gate, a message thread with customer/AI bubbles, a status pill that reflects the conversation state, and an escalation banner. Then I connected it all throug[...]
+I built the chat UI next: an email gate, a message thread with customer and AI bubbles, a status pill that reflects the conversation state, and an escalation banner. Then I connected it all through the `/api/messages` route: store the customer message, call the LLM, store the AI response, and escalate (with a duplicate escalation guard) when needed.
 
-For automation, I imported the n8n workflow (Webhook → dedupe check → notification), and similarly swapped the notification step from Slack to a Discord webhook to avoid an unnecessary OAuth [...]
+For automation, I imported the n8n workflow (Webhook, then a dedupe check, then a notification), and similarly swapped the notification step from Slack to a Discord webhook to avoid an unnecessary OAuth setup step for a demo.
 
-Testing was the last phase and where most of the real debugging happened: I confirmed the happy path (normal question → grounded answer → stays "open"), the escalation path (urgent message ��[...]
+Testing was the last phase and where most of the real debugging happened. I confirmed the happy path (a normal question gets a grounded answer and the conversation stays "open"), the escalation path (an urgent message gets escalated and sends a Discord notification, this is where I hit and fixed the n8n bug above), and deliberately broke the LLM API key to confirm the app fails safely rather than crashing. It correctly logged the error and returned a fallback escalation instead of a 500.
 
-I used Claude throughout as a pair programming/debugging partner — it helped scaffold the initial file structure and boilerplate, and walked me through debugging the n8n error step by step (che[...]
+I used Claude throughout as a pair programming and debugging partner. It helped scaffold the initial file structure and boilerplate, and walked me through debugging the n8n error step by step: checking the Executions tab, interpreting the "unused node" message, and identifying the Response Mode setting as the fix. The actual account setup (Supabase project, Discord webhook, Groq key), running the commands, reading the error logs, and verifying each fix worked was done by me directly in the terminal and dashboards.
 
 ### 3. If this chatbot suddenly started giving wrong answers in production
 
