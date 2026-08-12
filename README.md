@@ -12,27 +12,15 @@ handle alone get escalated to a human via an n8n automation.
 - **Automation:** n8n (self-hosted, free) — Webhook → dedupe check → Discord notification
 
 ## Architecture
-
-Customer (browser)
-│ POST /api/messages { message, userEmail, conversationId? }
-▼
-Next.js API route (app/api/messages/route.js)
-│
-├─ 1. find-or-create user, find-or-create conversation (Supabase)
-├─ 2. store customer message (Supabase)
-├─ 3. classify + draft response (lib/llm.js → Groq)
-│ - forced JSON output
-│ - validated against a strict schema (zod)
-│ - any failure → safe fallback: classify as "urgent", escalate
-├─ 4. store AI message (+ classification, confidence) (Supabase)
-└─ 5. if needs_escalation:
-- guard against duplicate escalation (status check + unique DB index)
-- insert escalations row
-- flip conversation.status = 'escalated'
-- POST to n8n webhook (best-effort, non-blocking)
-│
-▼
-n8n: Webhook → dedupe check → Discord message to #support-escalations
+```mermaid
+flowchart TD
+    A[Customer browser] -->|"POST /api/messages"| B["Next.js API route<br/>store message, classify, draft reply"]
+    B --> C{"Needs escalation?<br/>urgent, low confidence, or LLM failure"}
+    C -->|No| D["Send response<br/>status stays open"]
+    C -->|Yes| E["Escalation guard<br/>dedupe check, flip status to escalated"]
+    E --> F["n8n webhook<br/>dedupe check, format message"]
+    F --> G["Discord notification<br/>#support-escalations channel"]
+```
 
 
 ### Why these decisions
